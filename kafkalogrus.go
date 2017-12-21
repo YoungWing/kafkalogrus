@@ -76,7 +76,7 @@ func (hook *KafkaLogrusHook) Fire(entry *logrus.Entry) error {
 	var b []byte
 	var err error
 
-	t, _ := entry.Data["time"].(time.Time)
+	t := entry.Time
 	if b, err = t.MarshalBinary(); err != nil {
 		return err
 	}
