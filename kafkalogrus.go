@@ -10,7 +10,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// KafkaLogrusHook
+// KafkaLogrusHook ...
 type KafkaLogrusHook struct {
 	id             string
 	defaultTopic   string
@@ -21,19 +21,22 @@ type KafkaLogrusHook struct {
 	producer       sarama.AsyncProducer
 }
 
-// Create a new KafkaHook
+// NewKafkaLogrusHook Create a new KafkaHook
 func NewKafkaLogrusHook(id string,
 	levels []logrus.Level,
 	formatter logrus.Formatter,
 	brokers []string,
 	defaultTopic string,
-	injectHostname bool) (*KafkaLogrusHook, error) {
+	injectHostname bool,
+	compression int8,
+	ack int16) (*KafkaLogrusHook, error) {
 	var err error
 	var producer sarama.AsyncProducer
 	kafkaConfig := sarama.NewConfig()
-	kafkaConfig.Producer.RequiredAcks = sarama.WaitForLocal       // Only wait for the leader to ack
-	kafkaConfig.Producer.Compression = sarama.CompressionSnappy   // Compress messages
-	kafkaConfig.Producer.Flush.Frequency = 500 * time.Millisecond // Flush batches every 500ms
+	kafkaConfig.Producer.RequiredAcks = sarama.RequiredAcks(ack) // Only wait for the leader to ack
+	//0.9.0.1 unsupport Compression
+	kafkaConfig.Producer.Compression = sarama.CompressionCodec(compression) // Compress messages
+	kafkaConfig.Producer.Flush.Frequency = 500 * time.Millisecond           // Flush batches every 500ms
 
 	if producer, err = sarama.NewAsyncProducer(brokers, kafkaConfig); err != nil {
 		return nil, err
@@ -95,11 +98,11 @@ func (hook *KafkaLogrusHook) Fire(entry *logrus.Entry) error {
 
 	topic := hook.defaultTopic
 	if tsRaw, ok := entry.Data["topic"]; ok {
-		if ts, ok := tsRaw.(string); !ok {
+		ts, ok := tsRaw.(string)
+		if !ok {
 			return errors.New("Incorrect topic filed type (should be string)")
-		} else {
-			topic = ts
 		}
+		topic = ts
 	}
 	hook.producer.Input() <- &sarama.ProducerMessage{
 		Key:   partitionKey,
